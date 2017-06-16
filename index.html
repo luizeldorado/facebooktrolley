@@ -1,0 +1,178 @@
+<!doctype html>
+
+<meta property="og:type"		content="website" />
+<meta property="og:title"		content="Facebook trolley problem generator" />
+<meta property="og:description"	content="Make a trolley problem with friends from Facebook and decide to pull the lever or not." />
+
+<title>Facebook trolley problem generator</title>
+<link rel="stylesheet" type="text/css" href="style.css" />
+
+<script>
+
+var fbID = "";
+function statusChangeCallback(response) {
+	if (response.status === 'connected') {
+		id_login.style.display = "none";
+		//id_logged.style.display = "block";
+		id_status.innerHTML = "Getting info...";
+	
+		FB.api('/me', function(response) {
+			console.log(response);
+			
+			fbID = response.id;
+			//id_status.innerHTML = "Hello "+ response.name + "!";
+		});
+		
+		id_status.innerHTML = "<p>Getting friends list...</p>";
+		
+		getFriends("",function(friends) {
+			console.log(friends);
+			
+			if (friends.length < 6) {
+				id_status.innerHTML = "<p>You don't have enough friends :(</p>";
+			}
+			
+			var selected = [];
+			for(var i=0;i<6;i++) {
+				selected[i] = friends.splice(Math.random() * friends.length | 0, 1)[0];
+			}
+			
+			id_status.innerHTML = "Generating problem...";
+			
+			//make.php
+			var x = new XMLHttpRequest();
+			x.onreadystatechange = function() {
+				if (this.readyState == 4) {
+					if (this.status == 200) {
+						id_logged.style.display = "block";
+						fbID = x.responseText;
+						id_image.src = "data/"+fbID+".png";
+						id_status.innerHTML = "Trolley problem generated.";
+					} else {
+						id_status.innerHTML = "Something went TERRIBLY wrong. Oh no.";
+					}
+				}
+			};
+			x.open("GET","make.php?id="+fbID+"&p0="+selected[0].name+"&p1="+selected[1].name+"&p2="+selected[2].name+"&p3="+selected[3].name+"&p4="+selected[4].name+"&p5="+selected[5].name,true);
+			x.send();
+		});
+		
+	} else {
+		id_status.innerHTML = "Please log in to continue.";
+		id_login.style.display = "block";
+		id_logged.style.display = "none";
+	}
+}
+
+function clickYes() {
+	id_share.style.display = "block";
+	id_yes.disabled = true;
+	id_no.disabled = false;
+	
+	var u = "trolley.php?id="+fbID+"&pull=yes";
+	id_share.innerHTML = '<div class="fb-share-button" data-href="'+u+'" data-layout="button" data-size="large" data-mobile-iframe="false"><a  class="fb-xfbml-parse-ignore" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u='+encodeURI(u)+'&amp;src=sdkpreparse">Share</a></div>';
+	
+	FB.XFBML.parse();
+}
+
+function clickNo() {
+	id_share.style.display = "block";
+	id_yes.disabled = false;
+	id_no.disabled = true;
+	
+	var u = "trolley.php?id="+fbID+"&pull=no";
+	id_share.innerHTML = '<div class="fb-share-button" data-href="'+u+'" data-layout="button" data-size="large" data-mobile-iframe="false"><a  class="fb-xfbml-parse-ignore" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u='+encodeURI(u)+'&amp;src=sdkpreparse">Share</a></div>';
+	
+	FB.XFBML.parse();
+}
+
+function checkLoginState() {
+	FB.getLoginStatus(function(response) {
+		statusChangeCallback(response);
+	});
+}
+
+function getFriends(after,_callback) {
+	FB.api('/me/taggable_friends?after='+after, function(response) {
+		if (response && !response.error) {
+			if (response.data.length != 0) {
+				//console.log(response.paging.cursors.after);
+				
+				getFriends(response.paging.cursors.after,function(result) {
+					_callback(response.data.concat(result));
+				});
+				
+			} else {
+				_callback(response.data);
+			}
+		} else {
+			id_status.innerHTML = "For some reason, we can't access your friends. Probably Facebook's fault.<p>If you want to use this app, you must be included in the testers list for the app, which I control.<p>Enter in the text box below your Facebook username or URL to request being in that list.";
+			id_status.innerHTML += "<form action='request.php' method='POST'><input type='text' name='user' /><input type='submit' value='Submit request'></form>";
+			console.log("Error!!!!");
+		}
+	});
+}
+</script>
+<script>
+//facebook stuff
+
+window.fbAsyncInit = function() {
+	FB.init({
+		appId				: '1978861348995208',
+		autoLogAppEvents	: true,
+		status				: true,
+		xfbml				: true,
+		version				: 'v2.9'
+	});
+	FB.AppEvents.logPageView();
+	
+	FB.getLoginStatus(function(response) {
+		statusChangeCallback(response);
+	});
+	
+};
+
+function fbError() {
+	id_status.innerHTML = "Could not load Facebook D:";
+}
+
+(function(d, s, id){
+	var js, fjs = d.getElementsByTagName(s)[0];
+	if (d.getElementById(id)) {return;}
+	js = d.createElement(s); js.id = id;
+	js.src = "//connect.facebook.net/en_US/sdk.js";
+	js.onerror = "fbError();";
+	fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));
+</script>
+
+<h1>Facebook trolley problem generator</h1>
+
+<p id="status"></p>
+
+<div id="login" style="display:none;">
+	<fb:login-button onlogin="checkLoginState();" scope="public_profile,user_friends" data-size="large" data-button-type="login_with" data-show-faces="false" data-use-continue-as="true"></fb:login-button>
+</div>
+
+<div id="logged" style="display:none;">
+	<img id="image" src="" />
+	<p>Do you pull the lever?</p>
+	<button id="yes">Yes</button> <button id="no">No</button>
+	<div id="share" style="display:none">
+		
+	</div>
+</div>
+
+<script>
+//get ids
+id_status	= document.getElementById("status");
+	id_status.innerHTML = "Loading...";
+id_login	= document.getElementById("login");
+id_logged	= document.getElementById("logged");
+id_image	= document.getElementById("image");
+id_yes	= document.getElementById("yes");
+	id_yes.addEventListener("click",clickYes);
+id_no	= document.getElementById("no");
+	id_no.addEventListener("click",clickNo);
+id_share	= document.getElementById("share");
+</script>
